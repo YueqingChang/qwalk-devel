@@ -20,6 +20,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "Wavefunction_data.h"
 #include "Slat_wf_data.h"
+#include "ncol_Slat_wf_data.h"
 #include "Program_options.h"
 #include "Slat_Jastrow_data.h"
 #include "Jastrow2_wf.h"
@@ -35,6 +36,8 @@ int allocate(vector <string> & wftext, System * sys, Wavefunction_data * & wfptr
   if(wftext.size() < 1) error("Empty wavefunction section");
   if(caseless_eq(wftext[0],"SLATER"))
     wfptr=new Slat_wf_data;
+  else if(caseless_eq(wftext[0],"NCOL_SLATER"))
+    wfptr=new ncol_Slat_wf_data;
   else if(caseless_eq(wftext[0],"JASTROW2") 
 	  || caseless_eq(wftext[0], "JASTROW")) 
     wfptr=new Jastrow2_wf_data;

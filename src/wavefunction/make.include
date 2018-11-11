@@ -1,6 +1,7 @@
 
 MY_SOURCES:= \
         clark_updates.cpp \
+        ncol_clark_updates.cpp \
         Backflow_wf.cpp \
         Backflow_wf_data.cpp \
         Backflow_pf_wf.cpp \
@@ -16,6 +17,7 @@ MY_SOURCES:= \
         Pfaff_wf_data.cpp \
 	Slat_Jastrow.cpp \
 	Slat_Jastrow_data.cpp \
+	ncol_Slat_wf_data.cpp \
 	Slat_wf_data.cpp \
 	Wavefunction.cpp \
 	Wavefunction_data.cpp \
