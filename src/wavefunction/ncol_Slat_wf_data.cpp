@@ -20,7 +20,7 @@ void ncol_Slat_wf_data::read(vector <string> & words, unsigned int & pos,
   vector <vector <string> > statevec_beta;
   vector <string> strspindir_phi;
   vector <string> strspindir_theta;
-  vector <vector <string> > spindir_phi;
+  vector <vector <string> > spindir_phi; // nfunc, ndet*nelectrons
   vector <vector <string> > spindir_theta;
 
   unsigned int startpos=pos;
@@ -59,12 +59,9 @@ void ncol_Slat_wf_data::read(vector <string> & words, unsigned int & pos,
 
 
   //save them to arrays
-  spin_dir_phi.Resize(statevec_alpha[0].size());
-  spin_dir_theta.Resize(statevec_alpha[0].size());
-  for(int e=0; e< statevec_alpha[0].size(); e++){
-    spin_dir_phi(e) = atof(spindir_phi[0][e].c_str());
-    spin_dir_theta(e) = atof(spindir_theta[0][e].c_str());
-  }
+  nfunc = statevec_alpha.size();
+  nelectrons = sys->nelectrons(0);
+
 
 
   if(readvalue(words, pos=startpos, mo_place, "OPTIMIZE_MO") ) {
@@ -124,7 +121,13 @@ void ncol_Slat_wf_data::read(vector <string> & words, unsigned int & pos,
     ndet=strdetwt.size();
     detwt.Resize(ndet);
     for(int det=0; det < ndet; det++){
-      detwt(det)=atof(strdetwt[det].c_str());
+      // here is to convert the input detwt string to dcomplex
+      string s = strdetwt[det].c_str();
+      istringstream is('(' + s + ')');
+      dcomplex c;
+      is >> c;
+      detwt(det)=c;
+      cout << "detwt(" << det << ")=" << detwt(det).val() << endl;
     }
     CSF.Resize(ndet);
     ncsf=ndet;
@@ -134,7 +137,7 @@ void ncol_Slat_wf_data::read(vector <string> & words, unsigned int & pos,
       CSF(det)(1)=1.0;
     }
   }
-  if(fabs(CSF(0)(0)) < 1e-10)
+  if(fabs(CSF(0)(0).real()*CSF(0)(0).real()+CSF(0)(0).imag()*CSF(0)(0).imag()) < 1e-10)
     error("Cannot deal with the first CSF having zero weight.");
 
 
@@ -169,13 +172,18 @@ void ncol_Slat_wf_data::read(vector <string> & words, unsigned int & pos,
 
   //cout  << "finish reading the orb file" << endl;
 
-  nfunc=statevec_alpha.size();
-  //cout << "nfunc=" << nfunc << endl;
-  //nelectrons.Resize(1);
-
-  //nelectrons(0)=sys->nelectrons(0);
-  //nelectrons(1)=sys->nelectrons(1);
-  nelectrons = sys->nelectrons(0);
+  spin_dir_phi.Resize(nfunc,ndet,nelectrons);
+  spin_dir_theta.Resize(nfunc,ndet,nelectrons);
+  for(int f=0; f< nfunc; f++){
+    for(int d=0; d< ndet; d++){
+      for(int e=0; e< nelectrons; e++){
+        spin_dir_phi(f,d,e) = atof(spindir_phi[f][d*nelectrons+e].c_str());
+        spin_dir_theta(f,d,e) = atof(spindir_theta[f][d*nelectrons+e].c_str());
+        cout << "spindir_phi(" << f << "," << d << "," << e << ")=" << spin_dir_phi(f,d,e) << " ";
+        cout << "spindir_theta(" << f << "," << d << "," << e << ")=" << spin_dir_theta(f,d,e) << " ";
+      }
+    }
+  }
   //cout << "nelectrons=" << nelectrons << endl;
   //nelectrons = sys-> nelectrons(); //Now we no longer need up or down spin flags
   pos=startpos;
@@ -541,7 +549,7 @@ int ncol_Slat_wf_data::showinfo(ostream & os)
       for(int e=0; e<nelectrons;e++) {
         os << "spin directions:\n";
         os << "  ";
-        os << spin_dir_phi(e) << "  " << spin_dir_theta(e) << ", "; 
+        os << spin_dir_phi(f,det,e) << "  " << spin_dir_theta(f,det,e) << ", "; 
         if((e+1)%10 == 0) 
           os << endl << "  ";
       }
@@ -588,15 +596,15 @@ int ncol_Slat_wf_data::writeinput(string & indent, ostream & os) {
     os << indent << "SHERMAN_MORRISON_UPDATES" << endl;
   if(!sort)
     os << indent << "NOSORT" << endl;
-  Array1 <Array1 <doublevar> > CSF_print(ncsf);
-  Array1 <doublevar> detwt_print(ndet);
+  Array1 <Array1 <dcomplex> > CSF_print(ncsf);
+  Array1 <dcomplex> detwt_print(ndet);
   Array2 < Array1 <int> > occupation_orig_print(nfunc,ndet);
 
   if(sort){
     Array1 <doublevar> csf_tmp(ncsf);
     Array1 <int> list;
     for(int csf=0;csf<ncsf;csf++)
-      csf_tmp(csf)=CSF(csf)(0);
+      csf_tmp(csf)=sqrt(CSF(csf)(0).real()*CSF(csf)(0).real()+CSF(csf)(0).imag()*CSF(csf)(0).imag());
     sort_abs_values_descending(csf_tmp,csf_tmp,list);
 
 
@@ -709,7 +717,9 @@ void ncol_Slat_wf_data::getVarParms(Array1 <doublevar> & parms)
   else if(optimize_det) {
     parms.Resize(ncsf-1); 
     for(int i=1; i< ncsf; i++) {
-      parms(i-1)=CSF(i)(0);
+      //parms(i-1)=CSF(i)(0);
+      parms(i-1)=sqrt(CSF(i)(0).real()*CSF(i)(0).real()+CSF(i)(0).imag()*CSF(i)(0).imag());  
+      //TODO: not sure what this parms is doing if we only take the CSF amp.
     }
   }
   else {

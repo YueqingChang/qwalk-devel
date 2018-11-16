@@ -83,8 +83,11 @@ public:
   virtual void updateLap(Wavefunction_data *, Sample_point *);
 
   virtual void getVal(Wavefunction_data *, int, Wf_return &);
+
+
   virtual void getLap(Wavefunction_data *, int, Wf_return &);
   virtual void evalTestPos(Array1 <doublevar> & pos, Sample_point *, Array1 <Wf_return> & wf);
+
 
   virtual void saveUpdate(Sample_point *, int e, Wavefunction_storage *);
   virtual void restoreUpdate(Sample_point *, int e, Wavefunction_storage *);
@@ -107,6 +110,45 @@ public:
 
 
   void init(Wavefunction_data *,Templated_MO_matrix<T> * molecorb);
+
+
+  void getDetVal(Wavefunction_data * wfdata,
+                     Array2 < log_value <dcomplex> > detval_return)
+  {
+    assert(detval_return.GetDim(0)>=nfunc_);
+    assert(detval_return.GetDim(1)>=ndet);
+
+    ncol_Slat_wf_data * dataptr;
+    recast(wfdata, dataptr);
+
+    for(int f=0; f< nfunc_; f++) {
+      for(int det=0; det < ndet; det++){
+        detval_return(f,det) = dataptr->detwt(det)*detVal(f,det);
+      }   
+    }
+
+  }
+
+  void getDetSpinDir(Wavefunction_data * wfdata, Array3 <doublevar> spin_p, Array3 <doublevar> spin_t)
+  {
+    assert(spin_p.GetDim(0)>=nfunc_);
+    assert(spin_p.GetDim(1)>=ndet);
+    assert(spin_p.GetDim(2)>=nelectrons);
+    assert(spin_t.GetDim(0)>=nfunc_);
+    assert(spin_t.GetDim(1)>=ndet);
+    assert(spin_t.GetDim(2)>=nelectrons);
+
+    for(int f=0;f<nfunc_;f++){
+      for(int det=0;det<ndet;det++){
+        for(int e=0;e<nelectrons;e++){
+          spin_p(f,det,e) =  spindir_phi(f,det,e);
+          spin_t(f,det,e) =  spindir_theta(f,det,e);
+
+        }  
+      }
+    } 
+
+  }
 
   //--
 private:
@@ -157,8 +199,8 @@ private:
 
   int nelectrons;
   //don't need spin
-  Array1 <doublevar> spindir_phi;
-  Array1 <doublevar> spindir_theta;
+  Array3 <doublevar> spindir_phi; // (wf,det,electron)
+  Array3 <doublevar> spindir_theta;
 
 /*
   Array1 <int> nelectrons; //!< 2 elements, for spin up and down       //TODO check these
@@ -260,12 +302,16 @@ template <class T> inline void ncol_Slat_wf<T>::init(Wavefunction_data * wfdata,
   //spin.Resize(tote);
   //don't know if we need the following 2 arrays or not
   
-  spindir_phi.Resize(tote);
-  spindir_theta.Resize(tote);
+  spindir_phi.Resize(nfunc_,ndet,tote);
+  spindir_theta.Resize(nfunc_,ndet,tote);
 
-  for(int e=0; e < nelectrons; e++) {
-    spindir_phi(e) = dataptr->spin_dir_phi(e);
-    spindir_theta(e) = dataptr->spin_dir_theta(e);
+  for(int f=0; f < nfunc_; f++){
+    for(int d=0; d < ndet; d++) {
+      for(int e=0; e < nelectrons; e++) {
+        spindir_phi(f,d,e) = dataptr->spin_dir_phi(f,d,e);
+        spindir_theta(f,d,e) = dataptr->spin_dir_theta(f,d,e);
+      }
+    }
   }
 
   //cout << "in ncol_Slat_wf:273, the spin directions are: " <<  spindir_phi(0) << ", " << spindir_theta(0)
@@ -378,8 +424,8 @@ template<class T>inline void ncol_Slat_wf<T>::saveUpdate(Sample_point * sample, 
   }
 
   // the spin direction of electron e  
-  doublevar phi = spindir_phi(e);
-  doublevar theta = spindir_theta(e);
+  //doublevar phi = spindir_phi(e);
+  //doublevar theta = spindir_theta(e);
   
   int ndet_save=ndet;
   if(parent->use_clark_updates) ndet_save=1;
@@ -420,8 +466,8 @@ template<class T>inline void ncol_Slat_wf<T>::restoreUpdate(Sample_point * sampl
   ncol_Slat_wf_storage<T> * store;
   recast(wfstore, store);
 
-  doublevar phi=spindir_phi(e);
-  doublevar theta=spindir_phi(e);
+  //doublevar phi=spindir_phi(e);
+  //doublevar theta=spindir_theta(e);
 
   inverseStale=0;
   
@@ -477,8 +523,8 @@ template <class T>inline void ncol_Slat_wf<T>::saveUpdate(Sample_point * sample,
     inverseStale=0;
   }
   
-  doublevar phi1=spindir_phi(e1), phi2=spindir_phi(e2);
-  doublevar theta1=spindir_theta(e1), theta2=spindir_theta(e2);
+  //doublevar phi1=spindir_phi(e1), phi2=spindir_phi(e2);
+  //doublevar theta1=spindir_theta(e1), theta2=spindir_theta(e2);
  
   for(int f=0; f< nfunc_; f++) {
     for(int det=0; det<ndet; det++) {
@@ -531,8 +577,8 @@ template<class T> inline void ncol_Slat_wf<T>::restoreUpdate(Sample_point * samp
   //cout << "ncol_Slat_wf:: restoreUpdate" << endl;
 
   
-  doublevar phi1=spindir_phi(e1), phi2=spindir_phi(e2);
-  doublevar theta1=spindir_theta(e1), theta2=spindir_theta(e2);
+  //doublevar phi1=spindir_phi(e1), phi2=spindir_phi(e2);
+  //doublevar theta1=spindir_theta(e1), theta2=spindir_theta(e2);
 
   inverseStale=0;
   
@@ -769,8 +815,8 @@ template <class T>inline void ncol_Slat_wf<T>::updateInverse(ncol_Slat_wf_data *
   int maxmatsize=nelectrons;
   Array1 <dcomplex> modet(maxmatsize);
 
-  doublevar phi = spindir_phi(e);
-  doublevar theta = spindir_theta(e);
+  //doublevar phi = spindir_phi(e);
+  //doublevar theta = spindir_theta(e);
 
   int ndet_update=ndet;
   if(parent->use_clark_updates) ndet_update=1;
@@ -783,8 +829,8 @@ template <class T>inline void ncol_Slat_wf<T>::updateInverse(ncol_Slat_wf_data *
         Array2 <dcomplex> allmos(nelectrons, nelectrons);
         for(int e=0; e< nelectrons; e++) {
           int curre=e;
-          doublevar phi_e = spindir_phi(e); //TODO: check this
-          doublevar theta_e = spindir_theta(e);
+          doublevar phi_e = spindir_phi(f,det,e);
+          doublevar theta_e = spindir_theta(f,det,e);
           if(dataptr->optimize_mo){
             error("orbital rotation is not yet supported for noncollinear wave functions");
           }
@@ -819,6 +865,8 @@ template <class T>inline void ncol_Slat_wf<T>::updateInverse(ncol_Slat_wf_data *
           error("orbital rotation is not yet supported for noncollinear wave functions");
         }
         else{
+          doublevar phi = spindir_phi(f,det,e); //TODO: check this
+          doublevar theta = spindir_theta(f,det,e);
           for(int i = 0; i < nelectrons; i++) {
             modet(i)=cos(phi/2.)*moVal_alpha(0,e,dataptr->occupation_alpha(f,det)(i))
                      +sin(phi/2.)*dcomplex(cos(theta),sin(theta))*moVal_beta(0,e, dataptr->occupation_beta(f,det)(i));
@@ -858,8 +906,6 @@ template <class T> inline int ncol_Slat_wf<T>::updateValNoInverse(ncol_Slat_wf_d
   int maxmatsize=nelectrons;
   Array1 <dcomplex> modet(maxmatsize);
 
-  doublevar phi = spindir_phi(e);
-  doublevar theta = spindir_theta(e); 
 
   for(int f=0; f< nfunc_; f++)  {
     for(int det=0; det< ndet; det++)  {
@@ -872,6 +918,8 @@ template <class T> inline int ncol_Slat_wf<T>::updateValNoInverse(ncol_Slat_wf_d
   
   for(int f=0; f< nfunc_; f++)  {
     for(int det=0; det< ndet; det++)  {
+      doublevar phi = spindir_phi(f,det,e);
+      doublevar theta = spindir_theta(f,det,e); 
       //fill the molecular orbitals for this
       //determinant
       if(dataptr->optimize_mo){
@@ -935,8 +983,6 @@ template <class T> inline void ncol_Slat_wf<T>::updateVal( ncol_Slat_wf_data * d
   assert(dataptr != NULL);
   sample->updateEIDist();
   
-  doublevar phi = spindir_phi(e);
-  doublevar theta = spindir_theta(e);
 
   //update all the mo's that we will be using.
   //cout << "start updateVal for the molecular orbitals" << endl;
@@ -1014,6 +1060,9 @@ template <class T>inline void ncol_Slat_wf<T>::getVal(Wavefunction_data * wfdata
   val.setVals(vals);
 
 }
+//----------------------------------------------------------------------
+
+//----------------------------------------------------------------------
 
 template <class T> inline void ncol_Slat_wf<T>::getSymmetricVal(Wavefunction_data * wfdata,
 		     int e, Wf_return & val){
@@ -1041,8 +1090,6 @@ template <class T> inline void ncol_Slat_wf<T>::calcLap(ncol_Slat_wf_data * data
     molecorb->updateLap(sample, e, 1, updatedMoVal_beta); //listnum=1 for beta orbitals
 
 
-
-
        
     //cout << "done " << endl;
     for(int d=0; d< 5; d++)  {
@@ -1063,8 +1110,8 @@ template <class T> inline void ncol_Slat_wf<T>::calcLap(ncol_Slat_wf_data * data
       //for(int s=0; s< 2; s++ ) {
 
         for(int e=0; e< nelectrons; e++) {
-          doublevar phi = spindir_phi(e);
-          doublevar theta = spindir_theta(e);
+          doublevar phi = spindir_phi(f,det,e);
+          doublevar theta = spindir_theta(f,det,e);
 
           //int curre=s*nelectrons(0)+e;
           
@@ -1111,8 +1158,6 @@ template <class T> inline void ncol_Slat_wf<T>::calcLap(ncol_Slat_wf_data * data
 template <class T> void ncol_Slat_wf<T>::getDetLap(int e, Array3<log_value <dcomplex> > &  vals ) { 
   vals.Resize(nfunc_,ndet,5);
   
-  doublevar phi = spindir_phi(e);
-  doublevar theta = spindir_theta(e);
 
   //int opp=opspin(e);
 
@@ -1147,6 +1192,8 @@ template <class T> void ncol_Slat_wf<T>::getDetLap(int e, Array3<log_value <dcom
     for(int i=1; i< 5; i++) {
       if(!parent->use_clark_updates) {   //Sherman-Morrison updates
         for(int det=0; det < ndet; det++) {
+          doublevar phi = spindir_phi(f,det,e);
+          doublevar theta = spindir_theta(f,det,e);
           dcomplex temp=0.;
           if(parent->optimize_mo){  
             error("orbital rotation is not yet supported for ncol wfs");
@@ -1259,8 +1306,6 @@ template <class T> inline void ncol_Slat_wf<T>::updateLap(ncol_Slat_wf_data * da
   assert(dataptr != NULL);
 
   //int s=spin(e); //no need
-  doublevar phi = spindir_phi(e);
-  doublevar theta = spindir_theta(e); 
 
   sample->updateEIDist();
 

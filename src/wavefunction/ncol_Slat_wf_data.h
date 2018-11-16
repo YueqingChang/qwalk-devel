@@ -90,7 +90,8 @@ private:
   Array2 < Array1 <int> > occupation_beta;
   Array2 < Array1 <int> > occupation_orig_alpha;  //(function,det)
   Array2 < Array1 <int> > occupation_orig_beta;  
-  Array1 <log_value<doublevar> > detwt;
+  //Array1 <log_value<doublevar> > detwt;
+  Array1 <log_value<dcomplex> > detwt;
   Array1 < Array1 <int> > totoccupation; //occupations of spinors
   Array1 <int> totoccupation_alpha;
   Array1 <int> totoccupation_beta;
@@ -98,8 +99,8 @@ private:
   int max_occupation_changes;
 
   int nelectrons; // maybe don't need this. We really only need the total number of electrons
-  Array1 <doublevar> spin_dir_phi;
-  Array1 <doublevar> spin_dir_theta;  // stores the spin directions for each electron
+  Array3 <doublevar> spin_dir_phi;  //(nfunc_,ndet,nelectrons)
+  Array3 <doublevar> spin_dir_theta;  // stores the spin directions for each electron
  
   int nmo;        //!<Number of molecular orbitals
   int ndet;       //!<Number of determinants
@@ -109,7 +110,9 @@ private:
   Array1 <int> orbitals_for_optimize_mo; //!< which orbitals should be optimized 
   string mo_place; //!< where to place the new mo's
   int optimize_det; //!< whether to optimize determinant coefficients
-  Array1 <Array1 <doublevar> > CSF;
+
+  //Array1 <Array1 <doublevar> > CSF;
+  Array1 <Array1 <dcomplex> > CSF;
   int ncsf;
   int sort; //whether to sort det. weights by size
 
